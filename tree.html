@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+  <script src="https://unpkg.com/vuex@3.1.0/dist/vuex.js"></script>
+</head>
+<body>
+<ul id="demo">
+  <div>
+    <input v-model="searchString"/>
+    <button @click="search">Search</button>
+  </div>
+  <item
+    class="item"
+    :model="treeData"
+    :filter="filter">
+  </item>
+</ul>
+
+<script type="text/x-template" id="item-template">
+  <div>
+    <li>
+      <div>
+        <button @click="addChild">+</button>
+        <span v-bind:style="{color: inSearch()}">{{model.name}}</span>
+      </div>
+      <ul >
+        <item
+          class="item"
+          v-for="(model, index) in model.children"
+          :key="index"
+          :model="model"
+          :filter="filter">  
+        </item>   
+      </ul>
+    </li>
+    <input type="text"
+        placeholder="Input text and press Enter"
+        v-show ="isNew"
+        v-model="newItem"
+        v-focus
+        @keyup.enter="saveChild(newItem)"
+        requared>
+    </input>
+  </div>
+</script>
+
+<script>
+const data = {
+  id: 1,
+  name: 'root',
+  children: [{
+    id: 2,
+    name: 'hello'
+  }, {
+    id: 3,
+    name: 'wat'
+  }, {
+    id: 4,
+    name: 'child folder',
+    children: [{
+      id: 5,
+      name: 'child folder',
+      children: [{
+        id: 6,
+        name: 'hello'
+      }, {
+        id: 7,
+        name: 'wat'
+      }]
+    }, {
+      id: 8,
+      name: 'hello'
+    }, {
+      id: 9,
+      name: 'wat'
+    }, ]
+  }]
+}
+
+Vue.use(Vuex);
+
+const store = new Vuex.Store({
+  state: {
+    items: {},
+    count: 9
+  },
+  getters: {
+    ITEMS: state => {
+      return state.items;
+    },
+  },
+  mutations: {
+    GET_ITEMS: (state, payload) => {
+      state.items = payload;
+    },
+    ADD_ITEM: (state, payload) => {
+      function f(items, parentId, newItem) {
+        if (items.id === parentId) {
+          if (!("children" in items))
+            items.children = [];
+          items.children.push({
+            id: state.count,
+            name: newItem
+          });
+        } else
+        if (items.children && items.children.length)
+          for (var i = 0; i < items.children.length; i++) {
+            f(items.children[i], parentId, newItem);
+          };
+      };
+      f(state.items, payload.parentId, payload.newItem);
+    },
+  },
+  actions: {
+    GET_ITEMS: async (context, payload) => {
+      context.commit('GET_ITEMS', data);
+    },
+    ADD_ITEM: async (context, payload) => {
+      context.commit('ADD_ITEM', payload);
+    },
+  }
+});
+
+var disabledBtn = false;
+
+Vue.component('item', {
+  template: '#item-template',
+  props: {
+    model: Object,
+    filter: String
+  },
+  data: function() {
+    return {
+      isNew: false,
+      newItem: "",
+      parentId: null,
+      color: 'red'
+    }
+  },
+  methods: {
+    inSearch: function() {
+      if (this.model.name && this.model.name.indexOf(this.filter) === -1)
+        return "#008000";
+      else
+        return "#FF0000";
+    },
+    addChild: function() {
+      if (!disabledBtn) {
+        parentId = this.model.id;
+        this.isNew = true;
+        disabledBtn = true;
+      }
+    },
+    saveChild: function(newItem) {
+      this.$store.dispatch('ADD_ITEM', {
+        parentId,
+        newItem
+      });
+      this.newItem = "";
+      this.parentId = null;
+      this.isNew = false;
+      disabledBtn = false;
+    }
+  },
+  directives: {
+    focus: function(el) {
+      el.focus();
+    }
+  }
+})
+
+var demo = new Vue({
+  el: '#demo',
+  store,
+  data: {
+    filter: null,
+    searchString: ""
+  },
+  mounted() {
+    this.$store.dispatch('GET_ITEMS');
+  },
+  computed: {
+    treeData() {
+      return this.$store.getters.ITEMS;
+    }
+  },
+  methods: {
+    search: function() {
+      if (this.searchString === "")
+        this.filter = null;
+      else
+        this.filter = this.searchString;
+    }
+  }
+});
+</script>
+
+<style>
+  body {
+      font-family: Menlo, Consolas, monospace;
+      color: #444;
+  }
+  .item {
+      cursor: pointer;
+  }
+  ul {
+      padding-left: 1em;
+      line-height: 1em;
+      list-style-type: none;
+  }
+  li {
+      padding: 1em;
+      line-height: 1em;
+      font-weight: bold
+      position: relative;
+  }
+</style>
+</body>
+</html>
